@@ -9,12 +9,16 @@ Se abre con doble clic y se usa desde el navegador; no necesita internet para fu
 
 - **Pantalla principal** con todos los presupuestos en una cuadrícula, con buscador por cliente o proyecto.
 - **Formulario guiado en 3 pasos**: datos (cliente, fecha, proyecto), materiales y costos, y guardar o crear el PDF.
-- **Tabla de materiales** con cálculo automático del total de cada fila, del costo total de materiales y de la mano de obra.
+- **Tabla de materiales** con cálculo automático del total de cada fila, del costo total de materiales
+  y del **total general** (materiales + mano de obra).
   Acepta precios como `3.190` o `$3190` y cantidades con decimales (`1,5`).
 - **Subtítulos opcionales** para agrupar materiales, y botones para reordenar o quitar filas (con «Deshacer»).
-- **Guardar**, **Crear PDF** y **Guardar y crear PDF**. El PDF se abre solo y queda en su carpeta.
+- **Modificar nota**, **Guardar**, **Crear PDF** y **Guardar y crear PDF**. El PDF se abre solo y queda en su carpeta.
+- **Notas del PDF editables** desde el programa (agregar, cambiar, quitar o volver a las originales).
+  Se guardan en `notas.json`, junto a los presupuestos, y se usan en todos los PDF siguientes.
 - **PDF profesional** (tamaño carta): encabezado con fechas de emisión y vigencia, tabla numerada,
-  resumen de totales, notas y numeración de páginas.
+  resumen con **total general destacado**, notas y numeración de páginas.
+  La fecha «Válido hasta» se calcula con los días de la nota de vigencia.
 - **Protección contra pérdida de datos**: aviso de cambios sin guardar, confirmación antes de eliminar
   (los eliminados se mueven a una carpeta, no se borran) y mensajes claros ante cualquier error.
 
@@ -83,6 +87,7 @@ los archivos del programa (`git reset --hard`, sin `git clean`).
 
 ```
 Documentos\Presupuestos\
+├── notas.json                  ← notas personalizadas del PDF (solo si se modificaron)
 ├── Presupuestos guardados\     ← un archivo .json por presupuesto
 │   └── Eliminados\             ← presupuestos eliminados (se pueden recuperar moviéndolos de vuelta)
 └── Presupuestos en PDF\        ← los PDF creados
@@ -103,8 +108,8 @@ El PDF se genera siempre a partir de esa misma información.
 ```
 ├── app/
 │   ├── servidor.py          servidor local y API (guardar, listar, eliminar, crear PDF)
-│   ├── almacenamiento.py    lectura y escritura de los .json
-│   ├── generar_pdf.py       diseño del PDF (las NOTAS están al inicio de este archivo)
+│   ├── almacenamiento.py    lectura y escritura de los .json y de las notas (incluye las notas originales)
+│   ├── generar_pdf.py       diseño del PDF
 │   ├── config.py            rutas (lee config.local.json si existe)
 │   ├── iniciar.py           deja el servidor en segundo plano y abre el navegador
 │   ├── verificar.py         prueba que usa el instalador
