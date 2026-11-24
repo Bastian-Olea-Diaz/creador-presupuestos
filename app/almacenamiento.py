@@ -111,7 +111,7 @@ def validar(p: dict) -> None:
 
 def _leer(ruta: Path) -> dict | None:
     try:
-        with open(ruta, encoding="utf-8") as f:
+        with open(ruta, encoding="utf-8-sig") as f:  # acepta archivos con o sin BOM (p. ej. editados en el Bloc de notas)
             datos = json.load(f)
         if isinstance(datos, dict) and datos.get("id"):
             return datos

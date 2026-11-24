@@ -13,7 +13,8 @@
 
 .EXAMPLE
     # Instalar (o actualizar) desde PowerShell, en una sola línea:
-    irm https://raw.githubusercontent.com/Bastian444/creador-presupuestos/main/install.ps1 | iex
+    irm https://raw.githubusercontent.com/Bastian444/creador-presupuestos/main/install.ps1 -OutFile "$env:TEMP\install.ps1"; powershell -ExecutionPolicy Bypass -File "$env:TEMP\install.ps1"
+    # (No usar "irm ... | iex": el archivo lleva BOM para que PowerShell 5.1 lea bien los acentos.)
 
 .EXAMPLE
     # Desde una copia local del archivo:
@@ -410,5 +411,5 @@ try {
     Write-Host '  Sus presupuestos guardados no se modificaron.' -ForegroundColor Gray
 }
 
-# "exit" cerraría la ventana si el instalador se ejecutó con "irm ... | iex"; solo se usa al ejecutarlo como archivo.
+# "exit" solo se usa al ejecutarlo como archivo (con -File); así nunca se cierra una ventana interactiva.
 if ($PSCommandPath -and $fallo) { exit 1 }

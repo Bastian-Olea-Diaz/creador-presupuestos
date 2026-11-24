@@ -26,7 +26,7 @@ En el computador donde se usará el programa:
 2. Copie y pegue esta línea y presione Enter:
 
    ```powershell
-   irm https://raw.githubusercontent.com/Bastian444/creador-presupuestos/main/install.ps1 | iex
+   irm https://raw.githubusercontent.com/Bastian444/creador-presupuestos/main/install.ps1 -OutFile "$env:TEMP\install.ps1"; powershell -ExecutionPolicy Bypass -File "$env:TEMP\install.ps1"
    ```
 
 3. Espere a que diga **«Listo»**. Si aparece una ventana pidiendo permiso para instalar Git o Python, acéptela.
