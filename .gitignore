@@ -1,0 +1,34 @@
+# --- Datos del usuario: NUNCA se publican ---------------------------------
+# (presupuestos guardados, PDF generados y la configuración local del equipo)
+Presupuestos guardados/
+Presupuestos en PDF/
+config.local.json
+
+# --- Entorno de Python ----------------------------------------------------
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# --- Archivos que crea el programa al funcionar ---------------------------
+app/registro.log*
+app/.puerto
+*.tmp
+*.log
+
+# --- Secretos (por si acaso) ----------------------------------------------
+.env
+.env.*
+*.pem
+*.key
+credentials*.json
+
+# --- Sistema operativo y editores -----------------------------------------
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
+.claude/

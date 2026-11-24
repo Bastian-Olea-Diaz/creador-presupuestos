@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Creador de presupuestos</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231F3864'/%3E%3Ctext x='16' y='23' font-size='19' font-family='Segoe UI,Arial' font-weight='700' fill='white' text-anchor='middle'%3E$%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+
+  <!-- ===================== PANTALLA PRINCIPAL ===================== -->
+  <main id="vista-inicio" class="vista" hidden>
+    <header class="encabezado-inicio">
+      <div>
+        <h1>Creador de presupuestos</h1>
+        <p class="bajada">Aquí están todos sus presupuestos. Haga clic en uno para abrirlo, o cree uno nuevo.</p>
+      </div>
+      <button type="button" class="boton boton-secundario" id="btn-carpeta-pdf">
+        <span aria-hidden="true">📁</span> Ver mis PDF creados
+      </button>
+    </header>
+
+    <div class="buscador" id="buscador" hidden>
+      <span aria-hidden="true" class="buscador-icono">🔍</span>
+      <input type="search" id="buscar" placeholder="Buscar por cliente o nombre del proyecto…" autocomplete="off"
+             aria-label="Buscar presupuesto">
+    </div>
+
+    <section class="cuadricula" id="cuadricula" aria-label="Lista de presupuestos"></section>
+    <p class="mensaje-vacio" id="mensaje-vacio" hidden></p>
+  </main>
+
+  <!-- ===================== FORMULARIO DEL PRESUPUESTO ===================== -->
+  <main id="vista-editor" class="vista" hidden>
+    <div class="barra-superior">
+      <button type="button" class="boton boton-secundario" id="btn-volver">
+        <span aria-hidden="true">←</span> Volver a mis presupuestos
+      </button>
+      <span class="estado-guardado" id="estado-guardado"></span>
+    </div>
+
+    <h1 id="titulo-editor">Nuevo presupuesto</h1>
+
+    <!-- Paso 1 -->
+    <section class="tarjeta">
+      <h2><span class="numero-paso">1</span> Datos del presupuesto</h2>
+      <div class="campos">
+        <label class="campo">
+          <span class="etiqueta">Nombre del cliente</span>
+          <input type="text" id="campo-cliente" placeholder="Por ejemplo: Jaime Pérez" autocomplete="off">
+        </label>
+        <label class="campo campo-fecha">
+          <span class="etiqueta">Fecha</span>
+          <input type="date" id="campo-fecha">
+        </label>
+        <label class="campo campo-ancho">
+          <span class="etiqueta">Nombre del proyecto o trabajo</span>
+          <input type="text" id="campo-proyecto" placeholder="Por ejemplo: Cambio de llave de jardín" autocomplete="off">
+          <span class="ayuda">Aparecerá como título en el documento que recibe el cliente.</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Paso 2 -->
+    <section class="tarjeta">
+      <h2><span class="numero-paso">2</span> Materiales y costos</h2>
+      <p class="ayuda-seccion">
+        Escriba cada material con su precio y cantidad. <strong>Los totales se calculan solos.</strong>
+      </p>
+
+      <div class="contenedor-tabla">
+        <table class="tabla-materiales">
+          <colgroup>
+            <col class="col-num"><col class="col-nombre"><col class="col-precio">
+            <col class="col-cantidad"><col class="col-total"><col class="col-acciones">
+          </colgroup>
+          <thead>
+            <tr>
+              <th></th>
+              <th>Nombre del material</th>
+              <th class="derecha">Precio unitario</th>
+              <th class="centro">Cantidad</th>
+              <th class="derecha">Total</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="filas"></tbody>
+        </table>
+      </div>
+
+      <div class="botones-agregar">
+        <button type="button" class="boton boton-agregar" id="btn-agregar-material">
+          <span aria-hidden="true">＋</span> Agregar otro material
+        </button>
+        <button type="button" class="boton boton-texto" id="btn-agregar-titulo"
+                title="Sirve para agrupar materiales, por ejemplo «Baño» o «Cocina»">
+          <span aria-hidden="true">＋</span> Agregar un subtítulo para agrupar materiales (opcional)
+        </button>
+      </div>
+
+      <div class="resumen">
+        <div class="resumen-fila">
+          <span>Costo total materiales</span>
+          <strong id="total-materiales">$0</strong>
+        </div>
+        <label class="resumen-fila resumen-mano">
+          <span>
+            Mano de obra
+            <small>Escriba el valor de su trabajo</small>
+          </span>
+          <span class="entrada-pesos">
+            <span class="signo">$</span>
+            <input type="text" inputmode="numeric" id="campo-mano" placeholder="0" autocomplete="off">
+          </span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Paso 3 -->
+    <section class="tarjeta">
+      <h2><span class="numero-paso">3</span> Guardar y crear el documento</h2>
+      <div class="acciones">
+        <div class="accion">
+          <button type="button" class="boton boton-secundario boton-grande" id="btn-guardar">
+            <span aria-hidden="true">💾</span> Guardar
+          </button>
+          <p>Guarda el presupuesto para seguir editándolo más tarde.</p>
+        </div>
+        <div class="accion">
+          <button type="button" class="boton boton-secundario boton-grande" id="btn-pdf">
+            <span aria-hidden="true">📄</span> Crear PDF
+          </button>
+          <p>Crea el documento para el cliente, sin guardar los cambios.</p>
+        </div>
+        <div class="accion">
+          <button type="button" class="boton boton-principal boton-grande" id="btn-guardar-pdf">
+            <span aria-hidden="true">✔</span> Guardar y crear PDF
+          </button>
+          <p>Hace las dos cosas. <strong>Es la opción más usada.</strong></p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===================== VENTANA DE CONFIRMACIÓN ===================== -->
+  <div class="fondo-modal" id="modal" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+      <h3 id="modal-titulo"></h3>
+      <p id="modal-texto"></p>
+      <div class="modal-botones" id="modal-botones"></div>
+    </div>
+  </div>
+
+  <!-- ===================== MENSAJES ===================== -->
+  <div class="avisos" id="avisos" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

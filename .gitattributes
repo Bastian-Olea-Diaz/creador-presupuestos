@@ -1,0 +1,8 @@
+# Normalizar finales de línea
+* text=auto
+# Windows necesita CRLF en estos archivos
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+# Binarios
+*.png binary
+*.pdf binary
