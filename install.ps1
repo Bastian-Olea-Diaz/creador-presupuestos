@@ -13,7 +13,7 @@
 
 .EXAMPLE
     # Instalar (o actualizar) desde PowerShell, en una sola línea:
-    irm https://raw.githubusercontent.com/Bastian444/creador-presupuestos/main/install.ps1 -OutFile "$env:TEMP\install.ps1"; powershell -ExecutionPolicy Bypass -File "$env:TEMP\install.ps1"
+    irm https://raw.githubusercontent.com/Bastian-Olea-Diaz/creador-presupuestos/main/install.ps1 -OutFile "$env:TEMP\install.ps1"; powershell -ExecutionPolicy Bypass -File "$env:TEMP\install.ps1"
     # (No usar "irm ... | iex": el archivo lleva BOM para que PowerShell 5.1 lea bien los acentos.)
 
 .EXAMPLE
@@ -26,7 +26,7 @@ param(
     [string]$Carpeta = (Join-Path $env:LOCALAPPDATA 'Programs\CreadorPresupuestos'),
     # Carpeta donde se guardan los presupuestos (.json) y los PDF
     [string]$CarpetaDatos = (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Presupuestos'),
-    [string]$Repositorio = 'https://github.com/Bastian444/creador-presupuestos.git',
+    [string]$Repositorio = 'https://github.com/Bastian-Olea-Diaz/creador-presupuestos.git',
     [string]$Rama = 'main',
     # Usado por "Actualizar Creador de presupuestos.bat": actualiza la instalación donde está este archivo
     [switch]$Actualizar,

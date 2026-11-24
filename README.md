@@ -26,7 +26,7 @@ En el computador donde se usará el programa:
 2. Copie y pegue esta línea y presione Enter:
 
    ```powershell
-   irm https://raw.githubusercontent.com/Bastian444/creador-presupuestos/main/install.ps1 -OutFile "$env:TEMP\install.ps1"; powershell -ExecutionPolicy Bypass -File "$env:TEMP\install.ps1"
+   irm https://raw.githubusercontent.com/Bastian-Olea-Diaz/creador-presupuestos/main/install.ps1 -OutFile "$env:TEMP\install.ps1"; powershell -ExecutionPolicy Bypass -File "$env:TEMP\install.ps1"
    ```
 
 3. Espere a que diga **«Listo»**. Si aparece una ventana pidiendo permiso para instalar Git o Python, acéptela.
@@ -119,7 +119,7 @@ El PDF se genera siempre a partir de esa misma información.
 ## Desarrollo
 
 ```powershell
-git clone https://github.com/Bastian444/creador-presupuestos.git
+git clone https://github.com/Bastian-Olea-Diaz/creador-presupuestos.git
 cd creador-presupuestos
 python -m venv .venv
 .venv\Scripts\python -m pip install -r requirements.txt
