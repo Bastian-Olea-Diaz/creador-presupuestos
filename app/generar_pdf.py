@@ -1,5 +1,6 @@
 """Crea el documento PDF de un presupuesto a partir de sus datos (los mismos del .json)."""
 import os
+import re
 from datetime import date, timedelta
 from pathlib import Path
 from xml.sax.saxutils import escape
@@ -15,18 +16,9 @@ from reportlab.pdfgen import canvas as rl_canvas
 from reportlab.platypus import (BaseDocTemplate, Flowable, Frame, HRFlowable, KeepTogether,
                                 PageTemplate, Paragraph, Spacer, Table, TableStyle)
 
-from almacenamiento import ErrorPresupuesto, nombre_seguro
+from almacenamiento import ErrorPresupuesto, leer_notas, nombre_seguro
 from config import CARPETA_PDF
 
-NOTAS = [
-    "No se incluyen fletes, retiro de escombros.",
-    "Vigencia del presupuesto: 30 días.",
-    "Los precios de los materiales se revisarán al momento de aceptar la oferta, "
-    "en caso de existir alguna variación considerable en sus valores.",
-    "Forma de pago mano de obra: 100% al finalizar trabajo.",
-    "Forma de pago materiales: 100% al momento de iniciar obra.",
-]
-DIAS_VIGENCIA = 30
 
 # ---------------------------------------------------------------- paleta
 AZUL = colors.HexColor("#1B2B48")        # color principal: títulos, encabezados
@@ -108,6 +100,19 @@ def fecha_larga(d: date) -> str:
     return f"{d.day} de {MESES[d.month - 1]} de {d.year}"
 
 
+def dias_vigencia(notas: list[str]) -> int | None:
+    """Lee los días de la nota de vigencia (p. ej. «Vigencia del presupuesto: 30 días»).
+
+    Así la fecha «Válido hasta» siempre coincide con lo que dicen las notas. Si no hay nota
+    de vigencia, se devuelve None y esa fecha no se muestra.
+    """
+    for nota in notas:
+        encontrado = re.search(r"vigencia\D{0,40}?(\d{1,4})\s*d[ií]as?", nota, re.IGNORECASE)
+        if encontrado:
+            return int(encontrado.group(1))
+    return None
+
+
 def nombre_pdf(p: dict) -> str:
     partes = ["Presupuesto", nombre_seguro(p["proyecto"], 60), nombre_seguro(p["cliente"], 40)]
     return " - ".join(x for x in partes if x) + f" ({fecha_corta(p['fecha'])}).pdf"
@@ -148,7 +153,7 @@ def _titulo_seccion(texto, f):
     return [
         Etiqueta(texto, f.negrita, 9, AZUL, espacio=1.6),
         Spacer(1, 4),
-        HRFlowable(width=1.1 * cm, thickness=2, color=BRONCE, hAlign="LEFT", spaceAfter=10),
+        HRFlowable(width=1.1 * cm, thickness=2, color=BRONCE, hAlign="LEFT", spaceAfter=8),
     ]
 
 
@@ -198,9 +203,17 @@ def _canvas_con_marco(p: dict, f: type[Fuentes]):
 
 # ---------------------------------------------------------------- documento
 
-def crear_pdf(p: dict) -> Path:
-    """Genera el PDF y devuelve su ruta. `p` debe venir de almacenamiento.normalizar()."""
+def crear_pdf(p: dict, notas: list[str] | None = None) -> Path:
+    """Genera el PDF y devuelve su ruta. `p` debe venir de almacenamiento.normalizar().
+
+    Si no se indican `notas`, se usan las guardadas por el usuario (o las predeterminadas).
+    """
     f = _registrar_fuentes()
+    if notas is None:
+        notas = leer_notas()["notas"]
+    notas = [n for n in (str(x).strip() for x in notas) if n]
+    vigencia = dias_vigencia(notas)
+    total_general = p.get("total_general", p["total_materiales"] + p["mano_de_obra"])
 
     def estilo(nombre, **kw):
         base = dict(fontName=f.normal, fontSize=10, leading=13.5, textColor=TEXTO)
@@ -213,6 +226,8 @@ def crear_pdf(p: dict) -> Path:
     e_celda = estilo("celda")
     e_subtitulo = estilo("subtitulo", fontName=f.negrita, textColor=AZUL)
     e_monto = estilo("monto", fontName=f.negrita, fontSize=12.5, leading=15, textColor=AZUL, alignment=TA_RIGHT)
+    e_monto_total = estilo("montototal", fontName=f.negrita, fontSize=15, leading=18, textColor=colors.white,
+                           alignment=TA_RIGHT)
     e_nota = estilo("nota", fontSize=9.8, leading=13.5)
     e_vineta = estilo("vineta", fontName=f.negrita, fontSize=11, leading=13.5, textColor=BRONCE)
 
@@ -225,11 +240,14 @@ def crear_pdf(p: dict) -> Path:
             Etiqueta("Fecha de emisión", f.negrita, 7.5, GRIS, espacio=1.2, alinear="right"),
             Spacer(1, 2),
             Paragraph(fecha_larga(emision), e_meta),
-            Spacer(1, 9),
-            Etiqueta("Válido hasta", f.negrita, 7.5, GRIS, espacio=1.2, alinear="right"),
-            Spacer(1, 2),
-            Paragraph(fecha_larga(emision + timedelta(days=DIAS_VIGENCIA)), e_meta),
         ]
+        if vigencia:
+            fechas += [
+                Spacer(1, 9),
+                Etiqueta("Válido hasta", f.negrita, 7.5, GRIS, espacio=1.2, alinear="right"),
+                Spacer(1, 2),
+                Paragraph(fecha_larga(emision + timedelta(days=vigencia)), e_meta),
+            ]
     else:
         fechas = [Paragraph(escape(p["fecha"]), e_meta)]
 
@@ -243,7 +261,7 @@ def crear_pdf(p: dict) -> Path:
         ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
         ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
     ]))
-    historia += [encabezado, Spacer(1, 18)]
+    historia += [encabezado, Spacer(1, 14)]
 
     # --- tarjeta del cliente
     cliente = Table([[[Etiqueta("Cliente", f.negrita, 7.5, GRIS, espacio=1.4), Spacer(1, 3),
@@ -254,7 +272,7 @@ def crear_pdf(p: dict) -> Path:
         ("LEFTPADDING", (0, 0), (-1, -1), 14), ("RIGHTPADDING", (0, 0), (-1, -1), 14),
         ("TOPPADDING", (0, 0), (-1, -1), 10), ("BOTTOMPADDING", (0, 0), (-1, -1), 11),
     ]))
-    historia += [cliente, Spacer(1, 20)]
+    historia += [cliente, Spacer(1, 16)]
 
     # --- tabla de materiales
     historia += _titulo_seccion("Detalle de materiales", f)
@@ -272,7 +290,7 @@ def crear_pdf(p: dict) -> Path:
         ("FONTSIZE", (0, 1), (-1, -1), 10),
         ("TEXTCOLOR", (0, 1), (-1, -1), TEXTO),
         ("TOPPADDING", (0, 0), (-1, 0), 9), ("BOTTOMPADDING", (0, 0), (-1, 0), 9),
-        ("TOPPADDING", (0, 1), (-1, -1), 6), ("BOTTOMPADDING", (0, 1), (-1, -1), 7),
+        ("TOPPADDING", (0, 1), (-1, -1), 5), ("BOTTOMPADDING", (0, 1), (-1, -1), 6),
         ("LEFTPADDING", (0, 0), (-1, -1), 8), ("RIGHTPADDING", (0, 0), (-1, -1), 8),
         ("ALIGN", (0, 1), (0, -1), "CENTER"),
         ("ALIGN", (2, 1), (2, -1), "RIGHT"),
@@ -309,27 +327,36 @@ def crear_pdf(p: dict) -> Path:
 
     tabla = Table(filas, colWidths=anchos, repeatRows=1)
     tabla.setStyle(TableStyle(estilos))
-    historia += [tabla, Spacer(1, 14)]
+    historia += [tabla, Spacer(1, 12)]
 
     # --- resumen de totales (alineado a la derecha)
     def fila_resumen(etiqueta, valor):
         return [Etiqueta(etiqueta, f.negrita, 8, AZUL_MEDIO, espacio=1.1), Paragraph(pesos(valor), e_monto)]
 
     resumen = Table([fila_resumen("Total materiales", p["total_materiales"]),
-                     fila_resumen("Mano de obra", p["mano_de_obra"])],
-                    colWidths=[4.6 * cm, 3.4 * cm], hAlign="RIGHT")
+                     fila_resumen("Mano de obra", p["mano_de_obra"]),
+                     [Etiqueta("Total general", f.negrita, 9, colors.white, espacio=1.4),
+                      Paragraph(pesos(total_general), e_monto_total)]],
+                    colWidths=[4.6 * cm, 3.8 * cm], hAlign="RIGHT")
     resumen.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), FONDO),
+        ("BACKGROUND", (0, 0), (-1, 1), FONDO),
         ("LINEABOVE", (0, 0), (-1, 0), 2, BRONCE),
         ("LINEBELOW", (0, 0), (-1, 0), 0.6, LINEA),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("LEFTPADDING", (0, 0), (-1, -1), 12), ("RIGHTPADDING", (0, 0), (-1, -1), 12),
-        ("TOPPADDING", (0, 0), (-1, -1), 9), ("BOTTOMPADDING", (0, 0), (-1, -1), 9),
+        ("TOPPADDING", (0, 0), (-1, -1), 7), ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+        # total general destacado: fondo azul, texto blanco y un filete bronce abajo
+        ("BACKGROUND", (0, 2), (-1, 2), AZUL),
+        ("TOPPADDING", (0, 2), (-1, 2), 9), ("BOTTOMPADDING", (0, 2), (-1, 2), 10),
+        ("LINEBELOW", (0, 2), (-1, 2), 2, BRONCE),
     ]))
-    historia += [KeepTogether(resumen), Spacer(1, 22)]
+    historia += [KeepTogether(resumen), Spacer(1, 18)]
 
     # --- notas
-    caja = Table([[Paragraph("•", e_vineta), Paragraph(escape(n), e_nota)] for n in NOTAS],
+    if not notas:  # el usuario dejó las notas vacías: el PDF termina en los totales
+        historia.pop()  # quita el espacio que iba antes de las notas
+        return _escribir(p, historia, f)
+    caja = Table([[Paragraph("•", e_vineta), Paragraph(escape(n), e_nota)] for n in notas],
                  colWidths=[0.95 * cm, ANCHO - 0.95 * cm])
     caja.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), FONDO),
@@ -337,10 +364,13 @@ def crear_pdf(p: dict) -> Path:
         ("LEFTPADDING", (0, 0), (0, -1), 14), ("LEFTPADDING", (1, 0), (1, -1), 0),
         ("RIGHTPADDING", (0, 0), (0, -1), 0), ("RIGHTPADDING", (1, 0), (1, -1), 14),
         ("TOPPADDING", (0, 0), (-1, -1), 2), ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-        ("TOPPADDING", (0, 0), (-1, 0), 12), ("BOTTOMPADDING", (0, -1), (-1, -1), 12),
+        ("TOPPADDING", (0, 0), (-1, 0), 10), ("BOTTOMPADDING", (0, -1), (-1, -1), 10),
     ]))
     historia.append(KeepTogether(_titulo_seccion("Notas", f) + [caja]))
+    return _escribir(p, historia, f)
 
+
+def _escribir(p: dict, historia: list, f: type[Fuentes]) -> Path:
     # --- escribir el archivo (primero a uno temporal, para no dejar un PDF a medias)
     CARPETA_PDF.mkdir(parents=True, exist_ok=True)
     destino = CARPETA_PDF / nombre_pdf(p)
@@ -350,7 +380,7 @@ def crear_pdf(p: dict) -> Path:
         title=f"Presupuesto - {p['proyecto']}", subject=f"Cliente: {p['cliente']}",
         author="", creator="Creador de presupuestos",
     )
-    marco = Frame(MARGEN_X, 2.2 * cm, ANCHO, ALTO_PAGINA - 2.2 * cm - 1.9 * cm,
+    marco = Frame(MARGEN_X, 2.1 * cm, ANCHO, ALTO_PAGINA - 2.1 * cm - 1.9 * cm,
                   leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
     doc.addPageTemplates([PageTemplate(id="pagina", frames=[marco])])
     doc.build(historia, canvasmaker=_canvas_con_marco(p, f))

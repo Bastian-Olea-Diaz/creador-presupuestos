@@ -8,7 +8,7 @@ import uuid
 from datetime import date, datetime
 from pathlib import Path
 
-from config import CARPETA_DATOS, CARPETA_ELIMINADOS, CARPETA_PDF
+from config import ARCHIVO_NOTAS, CARPETA_DATOS, CARPETA_ELIMINADOS, CARPETA_PDF
 
 _candado = threading.Lock()
 log = logging.getLogger(__name__)
@@ -83,6 +83,7 @@ def normalizar(datos: dict) -> dict:
         })
 
     total_materiales = sum(f["total"] for f in filas if f["tipo"] == "material")
+    mano_de_obra = _entero(datos.get("mano_de_obra"))
     return {
         "id": str(datos.get("id") or "").strip() or None,
         "cliente": str(datos.get("cliente") or "").strip(),
@@ -90,7 +91,8 @@ def normalizar(datos: dict) -> dict:
         "fecha": _fecha(datos.get("fecha")),
         "filas": filas,
         "total_materiales": total_materiales,
-        "mano_de_obra": _entero(datos.get("mano_de_obra")),
+        "mano_de_obra": mano_de_obra,
+        "total_general": total_materiales + mano_de_obra,
     }
 
 
@@ -164,6 +166,9 @@ def resumen(datos: dict) -> dict:
         "fecha": datos.get("fecha", ""),
         "total_materiales": datos.get("total_materiales", 0),
         "mano_de_obra": datos.get("mano_de_obra", 0),
+        # los presupuestos guardados con versiones anteriores no tienen este dato: se calcula
+        "total_general": datos.get("total_general",
+                                   (datos.get("total_materiales") or 0) + (datos.get("mano_de_obra") or 0)),
         "cantidad_materiales": sum(1 for f in datos.get("filas", []) if f.get("tipo") == "material"),
         "modificado": datos.get("modificado", ""),
     }
@@ -214,3 +219,60 @@ def eliminar(id_: str) -> None:
         marca = datetime.now().strftime("%Y%m%d-%H%M%S")
         os.replace(ruta, CARPETA_ELIMINADOS / f"{ruta.stem} (eliminado {marca}).json")
         log.info("Eliminado %s", ruta.name)
+
+
+# ---------------------------------------------------------------- notas del PDF
+
+NOTAS_PREDETERMINADAS = [
+    "No se incluyen fletes, retiro de escombros.",
+    "Vigencia del presupuesto: 30 días.",
+    "Los precios de los materiales se revisarán al momento de aceptar la oferta, "
+    "en caso de existir alguna variación considerable en sus valores.",
+    "Forma de pago mano de obra: 100% al finalizar trabajo.",
+    "Forma de pago materiales: 100% al momento de iniciar obra.",
+]
+MAX_NOTAS = 30
+MAX_LARGO_NOTA = 600
+
+
+def leer_notas() -> dict:
+    """Notas que van al final de los PDF: las personalizadas, o las predeterminadas si no hay."""
+    try:
+        with open(ARCHIVO_NOTAS, encoding="utf-8-sig") as f:
+            datos = json.load(f)
+        notas = datos.get("notas") if isinstance(datos, dict) else None
+        if isinstance(notas, list):
+            return {"notas": [str(n) for n in notas], "personalizadas": True,
+                    "predeterminadas": NOTAS_PREDETERMINADAS}
+    except FileNotFoundError:
+        pass
+    except (OSError, ValueError) as e:
+        log.warning("No se pudieron leer las notas (%s); se usan las predeterminadas.", e)
+    return {"notas": list(NOTAS_PREDETERMINADAS), "personalizadas": False,
+            "predeterminadas": NOTAS_PREDETERMINADAS}
+
+
+def guardar_notas(notas) -> dict:
+    if not isinstance(notas, list):
+        raise ErrorPresupuesto("Las notas enviadas no son válidas.")
+    limpias = [" ".join(str(n).split()) for n in notas]
+    limpias = [n for n in limpias if n]
+    if len(limpias) > MAX_NOTAS:
+        raise ErrorPresupuesto(f"Puede haber como máximo {MAX_NOTAS} notas.")
+    if any(len(n) > MAX_LARGO_NOTA for n in limpias):
+        raise ErrorPresupuesto(f"Cada nota puede tener como máximo {MAX_LARGO_NOTA} letras.")
+    with _candado:
+        ARCHIVO_NOTAS.parent.mkdir(parents=True, exist_ok=True)
+        temporal = ARCHIVO_NOTAS.with_suffix(".tmp")
+        with open(temporal, "w", encoding="utf-8") as f:
+            json.dump({"notas": limpias, "modificado": _ahora()}, f, ensure_ascii=False, indent=2)
+        os.replace(temporal, ARCHIVO_NOTAS)
+    log.info("Notas del PDF guardadas (%s)", len(limpias))
+    return leer_notas()
+
+
+def restablecer_notas() -> dict:
+    with _candado:
+        ARCHIVO_NOTAS.unlink(missing_ok=True)
+    log.info("Notas del PDF restablecidas")
+    return leer_notas()

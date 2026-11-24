@@ -114,6 +114,13 @@
             <input type="text" inputmode="numeric" id="campo-mano" placeholder="0" autocomplete="off">
           </span>
         </label>
+        <div class="resumen-fila resumen-total">
+          <span>
+            Total general
+            <small>Materiales + mano de obra</small>
+          </span>
+          <strong id="total-general">$0</strong>
+        </div>
       </div>
     </section>
 
@@ -121,6 +128,12 @@
     <section class="tarjeta">
       <h2><span class="numero-paso">3</span> Guardar y crear el documento</h2>
       <div class="acciones">
+        <div class="accion">
+          <button type="button" class="boton boton-secundario boton-grande" id="btn-notas">
+            <span aria-hidden="true">📝</span> Modificar nota
+          </button>
+          <p>Cambia las notas que aparecen al final del PDF.</p>
+        </div>
         <div class="accion">
           <button type="button" class="boton boton-secundario boton-grande" id="btn-guardar">
             <span aria-hidden="true">💾</span> Guardar
@@ -142,6 +155,31 @@
       </div>
     </section>
   </main>
+
+  <!-- ===================== EDITOR DE NOTAS DEL PDF ===================== -->
+  <div class="fondo-modal" id="modal-notas" hidden>
+    <div class="modal modal-notas" role="dialog" aria-modal="true" aria-labelledby="notas-titulo">
+      <h3 id="notas-titulo">Notas del PDF</h3>
+      <p class="notas-explicacion">
+        Estas notas aparecen al final de <strong>todos los PDF</strong> que cree desde ahora.
+        Escriba una nota en cada recuadro.
+      </p>
+      <ol class="lista-notas" id="lista-notas"></ol>
+      <button type="button" class="boton boton-agregar" id="btn-agregar-nota">
+        <span aria-hidden="true">＋</span> Agregar otra nota
+      </button>
+      <div class="notas-pie">
+        <button type="button" class="boton boton-texto" id="btn-restablecer-notas"
+                title="Vuelve a poner las notas que traía el programa">
+          ↺ Volver a las notas originales
+        </button>
+        <div class="modal-botones">
+          <button type="button" class="boton boton-secundario" id="btn-cancelar-notas">Cancelar</button>
+          <button type="button" class="boton boton-principal" id="btn-guardar-notas">Guardar notas</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- ===================== VENTANA DE CONFIRMACIÓN ===================== -->
   <div class="fondo-modal" id="modal" hidden>

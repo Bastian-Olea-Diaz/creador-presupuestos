@@ -32,6 +32,7 @@ CARPETA_BASE_DATOS = _carpeta_datos()
 CARPETA_DATOS = CARPETA_BASE_DATOS / "Presupuestos guardados"
 CARPETA_ELIMINADOS = CARPETA_DATOS / "Eliminados"
 CARPETA_PDF = CARPETA_BASE_DATOS / "Presupuestos en PDF"
+ARCHIVO_NOTAS = CARPETA_BASE_DATOS / "notas.json"  # notas personalizadas del PDF
 
 ARCHIVO_REGISTRO = CARPETA_APP / "registro.log"
 ARCHIVO_PUERTO = CARPETA_APP / ".puerto"

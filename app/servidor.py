@@ -2,6 +2,7 @@
 import json
 import logging
 import mimetypes
+import socket
 import os
 import subprocess
 import sys
@@ -141,6 +142,15 @@ class Manejador(BaseHTTPRequestHandler):
                 alm.eliminar(id_)
                 return self._json({"ok": True})
 
+        if recurso == "notas":
+            accion = partes[1] if len(partes) > 1 else None
+            if metodo == "GET" and not accion:
+                return self._json(alm.leer_notas())
+            if metodo == "POST" and not accion:
+                return self._json(alm.guardar_notas(self._leer_json().get("notas")))
+            if metodo == "POST" and accion == "restablecer":
+                return self._json(alm.restablecer_notas())
+
         if recurso == "pdf" and metodo == "POST":
             return self._crear_pdf(self._leer_json())
 
@@ -178,13 +188,26 @@ class Manejador(BaseHTTPRequestHandler):
         self._json({"ok": True})
 
 
+class ServidorExclusivo(ThreadingHTTPServer):
+    """En Windows, HTTPServer permite que dos programas usen el mismo puerto a la vez
+    (SO_REUSEADDR), y los pedidos llegan a cualquiera de los dos. Aquí se pide el puerto
+    en forma exclusiva: si ya está ocupado, se prueba el siguiente."""
+    allow_reuse_address = False
+    daemon_threads = True
+
+    def server_bind(self):
+        if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
+
+
 def iniciar() -> None:
     _configurar_registro()
     alm.asegurar_carpetas()
     servidor = None
     for puerto in PUERTOS:
         try:
-            servidor = ThreadingHTTPServer(("127.0.0.1", puerto), Manejador)
+            servidor = ServidorExclusivo(("127.0.0.1", puerto), Manejador)
             break
         except OSError:
             continue

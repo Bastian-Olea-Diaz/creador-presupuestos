@@ -242,7 +242,8 @@ function tarjetaPresupuesto(p) {
     el('div', { class: 'cuadro-cliente', title: p.cliente }, 'Cliente: ', el('strong', {}, p.cliente)),
     el('div', { class: 'cuadro-montos' },
       el('div', {}, el('span', {}, `Materiales (${p.cantidad_materiales})`), el('strong', {}, pesos(p.total_materiales))),
-      el('div', {}, el('span', {}, 'Mano de obra'), el('strong', {}, pesos(p.mano_de_obra)))),
+      el('div', {}, el('span', {}, 'Mano de obra'), el('strong', {}, pesos(p.mano_de_obra))),
+      el('div', { class: 'cuadro-total' }, el('span', {}, 'Total general'), el('strong', {}, pesos(p.total_general)))),
     el('div', { class: 'cuadro-botones' },
       el('button', { type: 'button', class: 'boton boton-principal', onclick: (e) => { e.stopPropagation(); abrir(); } },
         'Abrir'),
@@ -382,6 +383,7 @@ function recalcular() {
     if (celda) celda.textContent = pesos(subtotal);
   }
   $('#total-materiales').textContent = pesos(total);
+  $('#total-general').textContent = pesos(total + estado.mano_de_obra);
   actualizarEncabezado();
 }
 
@@ -515,7 +517,7 @@ campoCliente.addEventListener('input', () => { estado.cliente = campoCliente.val
 campoProyecto.addEventListener('input', () => { estado.proyecto = campoProyecto.value; campoProyecto.classList.remove('con-error'); actualizarEncabezado(); });
 campoFecha.addEventListener('change', () => { estado.fecha = campoFecha.value || fechaHoy(); actualizarEncabezado(); });
 campoFecha.addEventListener('blur', () => { if (!campoFecha.value) campoFecha.value = estado.fecha; });
-campoMano.addEventListener('input', () => { estado.mano_de_obra = leerPesos(campoMano.value); actualizarEncabezado(); });
+campoMano.addEventListener('input', () => { estado.mano_de_obra = leerPesos(campoMano.value); recalcular(); });
 campoMano.addEventListener('blur', () => { campoMano.value = estado.mano_de_obra ? miles(estado.mano_de_obra) : ''; });
 
 /* --------------------------------------------------- revisar antes de guardar */
@@ -664,6 +666,141 @@ async function confirmarSalida() {
 $('#btn-volver').addEventListener('click', async () => {
   if (await confirmarSalida()) irA('#/');
 });
+
+/* =====================================================================
+   Editor de las notas del PDF («Modificar nota»)
+   Las notas son las mismas para todos los PDF y se guardan en notas.json,
+   junto a los presupuestos (las actualizaciones del programa no las tocan).
+   ===================================================================== */
+const modalNotas = $('#modal-notas');
+const listaNotas = $('#lista-notas');
+let notasEditando = [];
+let notasGuardadas = '';
+let notasPredeterminadas = [];
+
+const limpiarNotas = (notas) => notas.map((n) => n.replace(/\s+/g, ' ').trim()).filter(Boolean);
+const hayCambiosNotas = () => JSON.stringify(limpiarNotas(notasEditando)) !== notasGuardadas;
+const mismasNotas = (a, b) => JSON.stringify(limpiarNotas(a)) === JSON.stringify(limpiarNotas(b));
+
+function ajustarAlto(area) {
+  area.style.height = 'auto';
+  area.style.height = area.scrollHeight + 3 + 'px';
+}
+
+function dibujarNotas(enfocar = null) {
+  if (!notasEditando.length) {
+    listaNotas.replaceChildren(el('li', { class: 'notas-vacio' },
+      'No hay notas. Si guarda así, el PDF terminará en los totales.'));
+    return;
+  }
+  listaNotas.replaceChildren(...notasEditando.map((texto, i) => el('li', {},
+    el('textarea', {
+      rows: '1', 'aria-label': `Nota ${i + 1}`, placeholder: 'Escriba la nota aquí…',
+      oninput: (e) => { notasEditando[i] = e.target.value; ajustarAlto(e.target); },
+    }),
+    el('button', {
+      type: 'button', class: 'boton-icono quitar', title: 'Quitar esta nota', 'aria-label': `Quitar la nota ${i + 1}`,
+      onclick: () => { notasEditando.splice(i, 1); dibujarNotas(Math.min(i, notasEditando.length - 1)); },
+    }, '✕'))));
+  listaNotas.querySelectorAll('textarea').forEach((area, i) => { area.value = notasEditando[i]; ajustarAlto(area); });
+  if (enfocar !== null && enfocar >= 0) {
+    const area = listaNotas.querySelectorAll('textarea')[enfocar];
+    if (area) { area.focus(); area.setSelectionRange(area.value.length, area.value.length); }
+  }
+}
+
+function teclasNotas(e) {
+  if (e.key === 'Escape' && !e.defaultPrevented && $('#modal').hidden) { e.preventDefault(); cancelarNotas(); }
+}
+
+async function abrirNotas() {
+  let respuesta;
+  try {
+    respuesta = await api('GET', '/api/notas');
+  } catch (e) {
+    aviso(e.message, 'error');
+    return;
+  }
+  notasPredeterminadas = respuesta.predeterminadas;
+  notasEditando = [...respuesta.notas];
+  notasGuardadas = JSON.stringify(limpiarNotas(respuesta.notas));
+  modalNotas.hidden = false;
+  dibujarNotas(0);
+  document.addEventListener('keydown', teclasNotas);
+}
+
+function cerrarNotas() {
+  modalNotas.hidden = true;
+  document.removeEventListener('keydown', teclasNotas);
+  $('#btn-notas').focus();
+}
+
+async function cancelarNotas() {
+  if (hayCambiosNotas()) {
+    const descartar = await preguntar({
+      titulo: '¿Descartar los cambios en las notas?',
+      texto: 'Los cambios que hizo en las notas no se guardarán.',
+      botones: [
+        { texto: 'Seguir editando', valor: false },
+        { texto: 'Descartar cambios', valor: true, clase: 'boton-peligro' },
+      ],
+      enfocar: 0,
+    });
+    if (!descartar) return;
+  }
+  cerrarNotas();
+}
+
+async function guardarNotas() {
+  const notas = limpiarNotas(notasEditando);
+  if (!notas.length) {
+    const seguir = await preguntar({
+      titulo: '¿Dejar el PDF sin notas?',
+      texto: 'No escribió ninguna nota, así que los próximos PDF no tendrán la sección «Notas».',
+      botones: [
+        { texto: 'Volver a las notas', valor: false },
+        { texto: 'Sí, dejar sin notas', valor: true, clase: 'boton-principal' },
+      ],
+      enfocar: 0,
+    });
+    if (!seguir) return;
+  }
+  try {
+    // Si quedaron iguales a las originales, se vuelve a las del programa (así reciben futuras mejoras).
+    if (mismasNotas(notas, notasPredeterminadas)) await api('POST', '/api/notas/restablecer');
+    else await api('POST', '/api/notas', { notas });
+    cerrarNotas();
+    aviso('Notas guardadas. Aparecerán en los próximos PDF que cree.', 'exito');
+  } catch (e) {
+    aviso(e.message, 'error');
+  }
+}
+
+async function restablecerNotas() {
+  if (mismasNotas(notasEditando, notasPredeterminadas)) {
+    aviso('Las notas ya son las originales.', 'info');
+    return;
+  }
+  const si = await preguntar({
+    titulo: '¿Volver a las notas originales?',
+    texto: 'Las notas de esta ventana se reemplazarán por las que traía el programa.\n' +
+           'El cambio queda guardado solo cuando presione «Guardar notas».',
+    botones: [
+      { texto: 'Cancelar', valor: false },
+      { texto: 'Sí, poner las originales', valor: true, clase: 'boton-principal' },
+    ],
+  });
+  if (!si) return;
+  notasEditando = [...notasPredeterminadas];
+  dibujarNotas(0);
+}
+
+$('#btn-notas').addEventListener('click', abrirNotas);
+$('#btn-agregar-nota').addEventListener('click', () => { notasEditando.push(''); dibujarNotas(notasEditando.length - 1); });
+$('#btn-cancelar-notas').addEventListener('click', cancelarNotas);
+$('#btn-guardar-notas').addEventListener('click', guardarNotas);
+$('#btn-restablecer-notas').addEventListener('click', restablecerNotas);
+modalNotas.addEventListener('click', (e) => { if (e.target === modalNotas) cancelarNotas(); });
 
 /* =====================================================================
    Inicio

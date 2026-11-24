@@ -32,3 +32,6 @@ desktop.ini
 .vscode/
 .idea/
 .claude/
+
+# Notas personalizadas del PDF (cuando los datos están dentro del proyecto)
+/notas.json
