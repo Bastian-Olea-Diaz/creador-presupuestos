@@ -204,7 +204,7 @@ function Stop-ServidorEnMarcha {
                 Invoke-RestMethod -Uri "http://127.0.0.1:$puerto/api/apagar" -Method Post -Body '{}' `
                     -ContentType 'application/json' -TimeoutSec 3 -UseBasicParsing | Out-Null
                 Start-Sleep -Seconds 1
-                Write-Info 'Se cerró el programa que estaba abierto (se volverá a abrir al final).'
+                Write-Info 'Se cerró el programa que estaba abierto para poder actualizarlo.'
             }
         } catch { }
     }
@@ -379,7 +379,8 @@ function Install-CreadorPresupuestos {
     else { Write-Host '    Listo. El programa quedó instalado.' -ForegroundColor Green }
     Write-Host '  ==================================================' -ForegroundColor Green
     Write-Host ''
-    Write-Host "  Para abrirlo: doble clic en '$NOMBRE' en el Escritorio."
+    if ($SinAccesoEscritorio) { Write-Host "  Para abrirlo: doble clic en $(Join-Path $destino 'Iniciar Creador de presupuestos.bat')" }
+    else { Write-Host "  Para abrirlo: doble clic en '$NOMBRE' en el Escritorio." }
     Write-Host "  Sus presupuestos y PDF están en: $datos"
     Write-Host "  Para actualizarlo más adelante: doble clic en"
     Write-Host "     $(Join-Path $destino 'Actualizar Creador de presupuestos.bat')"
